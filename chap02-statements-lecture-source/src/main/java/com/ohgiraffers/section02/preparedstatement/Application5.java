@@ -1,54 +1,60 @@
-package com.ohgiraffers.section01.statement;
+package com.ohgiraffers.section02.preparedstatement;
 
 import com.ohgiraffers.model.dto.EmployeeDTO;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 import static com.ohgiraffers.common.JDBCTemplate.close;
 import static com.ohgiraffers.common.JDBCTemplate.getConnection;
-
 
 public class Application5 {
 
     public static void main(String[] args) {
 
-        // 1. Connection 객체 생성
+        // 연결객체 만들기
         Connection con = getConnection();
 
-        // 2. Statement 생성 // 쿼리문을 작성해서 데이터베이스에 요청하기 위해 사용하는 객체
-        Statement stmt = null;
+        PreparedStatement pstmt = null;
 
-        // 3. ResultSet 생성
         ResultSet rset = null;
 
-        // 리스트 생성
+        // 조회할 employee의 이름의 성을 받아서 찾기
+
+        Scanner sc = new Scanner(System.in);
+
+        System.out.println("조회할 이름의 성을 입력하세요 : ");
+
+        String empName = sc.nextLine();
+
+        // concat(?, '%') -> 로 시작하는 것
+//        String query = "select * from employee where emp_name like concat(?, '%')";
+
+        EmployeeDTO row = null;
         List<EmployeeDTO> empList = null;
 
-        // EmployeeDTO 생성
-        EmployeeDTO row = null;
+        Properties prop = new Properties();
+
         try {
+            prop.loadFromXML(new FileInputStream("src/main/java/com/ohgiraffers/section02/preparedstatement/employee-query.xml"));
 
-            // 4. 연결객체의 createStatement()를 이용한 Statement 객체 생성
-            stmt = con.createStatement();
+            String query = prop.getProperty("selectEmpByFamilyName");
 
-            // employee 테이블 전체 조회
-            String query = "select * from employee";
+            pstmt = con.prepareStatement(query);
 
-            // 5. executeQuery()로 쿼리문을 실행하고 결과를 ResultSet에 반환 받기
-            rset = stmt.executeQuery(query);
+            pstmt.setString(1, empName);
 
+            rset = pstmt.executeQuery();
 
             empList = new ArrayList<>();
 
-            // 6. 쿼리문의 결과를 컬럼 이름을 이용해서 사용
-            while (rset.next()) {
-
+            while(rset.next()) {
                 row = new EmployeeDTO();
 
                 row.setEmpId(rset.getString("EMP_ID"));
@@ -67,25 +73,24 @@ public class Application5 {
                 row.setEntYn(rset.getString("ENT_YN"));
 
                 empList.add(row);
-            }
 
+            }
         } catch (SQLException e) {
             throw new RuntimeException(e);
+        } catch (InvalidPropertiesFormatException e) {
+            throw new RuntimeException(e);
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }catch (IOException e) {
+            throw new RuntimeException(e);
         } finally {
-            // 7. 사용한 자원 반납
             close(rset);
-            close(stmt);
+            close(pstmt);
             close(con);
-
-            for(EmployeeDTO emp : empList) {
-                System.out.println(emp);
-            }
-
         }
-        /*
-        * 1. Statmeent의 문제점
-        * 2. 완전한 쿼리를 사용하다 보니 조작이 가능해진다. SQL 인젝션
-        * 3. */
+        for(EmployeeDTO emp : empList) {
+            System.out.println(emp);
+        }
 
     }
 }
